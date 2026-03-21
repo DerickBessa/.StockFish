@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using api.Dtos;
 using api.Dtos.Stock;
 using api.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace api.Controllers
 {
@@ -21,12 +22,12 @@ namespace api.Controllers
 			_context = context;
 		}
 		[HttpGet]
-		public IActionResult GetAll()
+		public async Task<IActionResult> GetAll()
 		{
-			var stocks = _context.Stocks.ToList()
-			.Select(s => s.ToStockDto());
+			var stocks = await _context.Stocks.ToListAsync();
+			var stockDto = stocks.Select(s => s.ToStockDto());
 
-			return Ok(stocks); //200 + todos os stocks
+			return Ok(stockDto); //200 + todos os stocks
 		}
 
 		[HttpGet("{id}")]
@@ -34,9 +35,9 @@ namespace api.Controllers
 		// para a pessoa que vai ler isso daqui, isso nao foi feito por IA
 		// eu realmente gosto de colocar comentarios!
 		// me ajuda a lembrar quando vou reaplicar ou revisar o codigo.
-		public IActionResult GetById([FromRoute] Guid id)
+		public async Task<IActionResult> GetById([FromRoute] Guid id)
 		{
-			var stock = _context.Stocks.Find(id);
+			var stock = await _context.Stocks.FindAsync(id);
 
 			if(stock == null)
 			{
@@ -47,20 +48,20 @@ namespace api.Controllers
 		}
 
 		[HttpPost]
-		public IActionResult Create([FromBody] CreateStockRequestDto stockDto)
+		public async Task<IActionResult> Create([FromBody] CreateStockRequestDto stockDto)
 		{
 			var stockModel = stockDto.ToStockFromCreateDTO();
 			_context.Stocks.Add(stockModel);
-			_context.SaveChanges();
+			await _context.SaveChangesAsync();
 
 			return CreatedAtAction(nameof(GetById), new{ id = stockModel.Id}, stockModel.ToStockDto());
 		}
 
 		[HttpPut]
 		[Route("{id}")]
-		public IActionResult Update([FromRoute] Guid id, [FromBody] UpdateStockRequestDto updateDto)
+		public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] UpdateStockRequestDto updateDto)
 		{
-			var stockModel = _context.Stocks.Find(id);
+			var stockModel = await _context.Stocks.FindAsync(id);
 
 			if(stockModel == null)
 			{
@@ -74,16 +75,16 @@ namespace api.Controllers
 			stockModel.Industry = updateDto.Industry;
 			stockModel.MarketCap = updateDto.MarketCap;
 
-			_context.SaveChanges();
+			await _context.SaveChangesAsync();
 
 			return Ok(stockModel.ToStockDto());
 		}
 		[HttpDelete]
 		[Route("{id}")]
 
-		public IActionResult Delete([FromRoute] Guid id)
+		public async Task<IActionResult> Delete([FromRoute] Guid id)
 		{
-			var stock = _context.Stocks.Find(id);
+			var stock = await _context.Stocks.FindAsync(id);
 
 			if(stock == null)
 			{
@@ -91,7 +92,7 @@ namespace api.Controllers
 			}
 
 			_context.Remove(stock);
-			_context.SaveChanges();
+			await _context.SaveChangesAsync();
 			
 			return NoContent(); //204 + nada para retornar
 		}
