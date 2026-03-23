@@ -9,6 +9,9 @@ using api.Dtos;
 using api.Dtos.Stock;
 using api.Models;
 using Microsoft.EntityFrameworkCore;
+using api.Repository;
+using api.Interfaces;
+
 
 namespace api.Controllers
 {
@@ -17,27 +20,25 @@ namespace api.Controllers
     public class StockController: ControllerBase
     {
 		private readonly ApplicationDBContext _context;
-        public StockController(ApplicationDBContext context)
+		private readonly IStockRepository _repository;
+        public StockController(ApplicationDBContext context, IStockRepository repository)
 		{
 			_context = context;
+			_repository = repository;
 		}
 		[HttpGet]
 		public async Task<IActionResult> GetAll()
 		{
-			var stocks = await _context.Stocks.ToListAsync();
-			var stockDto = stocks.Select(s => s.ToStockDto());
+			var stock = await _repository.GetAllAsync();
+			var stockDto = stock.Select(s => s.ToStockDto()).ToList();
 
 			return Ok(stockDto); //200 + todos os stocks
 		}
 
 		[HttpGet("{id}")]
-
-		// para a pessoa que vai ler isso daqui, isso nao foi feito por IA
-		// eu realmente gosto de colocar comentarios!
-		// me ajuda a lembrar quando vou reaplicar ou revisar o codigo.
 		public async Task<IActionResult> GetById([FromRoute] Guid id)
 		{
-			var stock = await _context.Stocks.FindAsync(id);
+			var stock = await _repository.GetByIdAsync(id);
 
 			if(stock == null)
 			{
@@ -50,9 +51,12 @@ namespace api.Controllers
 		[HttpPost]
 		public async Task<IActionResult> Create([FromBody] CreateStockRequestDto stockDto)
 		{
-			var stockModel = stockDto.ToStockFromCreateDTO();
-			_context.Stocks.Add(stockModel);
-			await _context.SaveChangesAsync();
+			var stockModel = await _repository.CreateAsync(stockDto.ToStockFromCreateDTO());
+
+			if (stockModel == null)
+			{
+				return StatusCode(500, "Erro ao criar o Stock");
+			}
 
 			return CreatedAtAction(nameof(GetById), new{ id = stockModel.Id}, stockModel.ToStockDto());
 		}
@@ -61,21 +65,13 @@ namespace api.Controllers
 		[Route("{id}")]
 		public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] UpdateStockRequestDto updateDto)
 		{
-			var stockModel = await _context.Stocks.FindAsync(id);
+			var stockModel = await _repository.UpdateAsync(id, updateDto);
 
 			if(stockModel == null)
 			{
 				return NotFound();
+
 			}
-
-			stockModel.Symbol = updateDto.Symbol;
-			stockModel.CompanyName = updateDto.CompanyName;
-			stockModel.Purchase = updateDto.Purchase;
-			stockModel.LastDiv = updateDto.LastDiv;
-			stockModel.Industry = updateDto.Industry;
-			stockModel.MarketCap = updateDto.MarketCap;
-
-			await _context.SaveChangesAsync();
 
 			return Ok(stockModel.ToStockDto());
 		}
@@ -84,16 +80,14 @@ namespace api.Controllers
 
 		public async Task<IActionResult> Delete([FromRoute] Guid id)
 		{
-			var stock = await _context.Stocks.FindAsync(id);
+			var stock = await _repository.Delete(id);
 
 			if(stock == null)
 			{
 				return NotFound();
+
 			}
 
-			_context.Remove(stock);
-			await _context.SaveChangesAsync();
-			
 			return NoContent(); //204 + nada para retornar
 		}
     }
